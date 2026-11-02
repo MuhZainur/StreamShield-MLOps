@@ -1,5 +1,13 @@
 """StreamShield Operations Dashboard: Real-Time Stream, Latency & Drift Observability."""
 
+import sys
+from pathlib import Path
+
+# Ensure repository root is on sys.path for Streamlit Cloud execution
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 import time
 import numpy as np
 import pandas as pd
