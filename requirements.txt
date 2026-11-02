@@ -1,0 +1,14 @@
+duckdb>=0.10.0
+pyarrow>=16.0.0
+onnxruntime>=1.18.0
+skl2onnx>=1.16.0
+lightgbm>=4.3.0
+scikit-learn>=1.4.0
+evidently>=0.4.25
+prometheus-client>=0.20.0
+fastapi>=0.111.0
+uvicorn>=0.30.0
+pydantic>=2.7.0
+streamlit>=1.35.0
+python-dotenv>=1.0.1
+plotly>=5.20.0
