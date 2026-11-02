@@ -34,14 +34,18 @@ if "store" not in st.session_state:
     with st.spinner("Warming up baseline feature store and ONNX engine..."):
         store = StreamFeatureStore("data/offline/features.duckdb")
         records = []
-        for i in range(1500):
+        for i in range(500):
             ev = generate_synthetic_event(i, drift_mode=False)
             feats = store.update_and_get_features(ev)
-            store.log_to_offline_store(ev, feats)
             r = dict(feats)
+            r["transaction_id"] = ev.transaction_id
+            r["user_id"] = ev.user_id
+            r["merchant_id"] = ev.merchant_id
+            r["timestamp"] = ev.timestamp
             r["is_fraud_ground_truth"] = ev.is_fraud_ground_truth
             records.append(r)
 
+        store.log_batch_to_offline_store(records)
         base_df = pd.DataFrame(records)
         trainer = FraudModelTrainer("models/fraud_detector.onnx")
         trainer.train_and_export(base_df)

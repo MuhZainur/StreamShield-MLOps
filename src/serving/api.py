@@ -38,10 +38,15 @@ def initialize_mlops_pipeline(n_warmup_events: int = 500):
     for i in range(n_warmup_events):
         ev = generate_synthetic_event(i, drift_mode=False)
         feats = feature_store.update_and_get_features(ev)
-        feature_store.log_to_offline_store(ev, feats)
         rec = dict(feats)
+        rec["transaction_id"] = ev.transaction_id
+        rec["user_id"] = ev.user_id
+        rec["merchant_id"] = ev.merchant_id
+        rec["timestamp"] = ev.timestamp
         rec["is_fraud_ground_truth"] = ev.is_fraud_ground_truth
         baseline_records.append(rec)
+
+    feature_store.log_batch_to_offline_store(baseline_records)
 
     baseline_df = pd.DataFrame(baseline_records)
 

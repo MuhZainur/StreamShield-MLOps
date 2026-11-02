@@ -35,8 +35,13 @@ class StreamFeatureStore:
         self._merchant_stats: Dict[str, Dict[str, int]] = defaultdict(lambda: {"total": 0, "fraud": 0})
 
         # Initialize DuckDB offline storage with persistent connection
-        os.makedirs(os.path.dirname(offline_db_path), exist_ok=True)
-        self.con = duckdb.connect(self.offline_db_path)
+        if offline_db_path and offline_db_path != ":memory:":
+            os.makedirs(os.path.dirname(offline_db_path), exist_ok=True)
+        try:
+            self.con = duckdb.connect(self.offline_db_path)
+        except Exception:
+            # Fallback to in-memory store if disk DB is locked by another process
+            self.con = duckdb.connect(":memory:")
         self._init_offline_db()
 
     def _init_offline_db(self) -> None:
@@ -107,6 +112,23 @@ class StreamFeatureStore:
                     event.is_fraud_ground_truth,
                 ),
             )
+
+    def log_batch_to_offline_store(self, records: List[Dict[str, Any]]) -> None:
+        """Fast vectorized batch append to DuckDB offline store."""
+        if not records:
+            return
+        with self._lock:
+            df = pd.DataFrame(records)
+            self.con.register("_temp_batch", df)
+            self.con.execute("""
+                INSERT OR REPLACE INTO historical_features
+                SELECT transaction_id, user_id, merchant_id, amount, timestamp,
+                       CAST(user_tx_count_10m AS INTEGER), user_amount_sum_1h,
+                       user_avg_amount_30d, amount_to_avg_ratio, merchant_risk_score,
+                       CAST(is_fraud_ground_truth AS INTEGER)
+                FROM _temp_batch
+            """)
+            self.con.unregister("_temp_batch")
 
     def get_historical_training_df(self) -> pd.DataFrame:
         """Fetch historical dataset for model training."""
