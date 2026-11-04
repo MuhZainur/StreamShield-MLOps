@@ -1,74 +1,93 @@
-# ⚡ StreamShield-MLOps: Real-Time Event-Driven Streaming MLOps Platform
-> **Sub-15ms Real-Time Inference.** Apache Kafka/Redpanda Event Ingestion, Feast Feature Store (Redis + DuckDB), ONNX Runtime Serving, and Evidently AI Drift Observability.
+# ⚡ StreamShield-MLOps: Fraud Scoring with ONNX Runtime and Drift Monitoring
+> A single-machine fraud-scoring pipeline on synthetic events: rolling online features, DuckDB offline storage, ONNX Runtime inference through FastAPI, and statistical drift checks.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Feast](https://img.shields.io/badge/Feature%20Store-Feast%20v0.40+-orange.svg)](https://feast.dev)
-[![ONNX Runtime](https://img.shields.io/badge/Inference-ONNX%20Runtime%20P99%20%3C%2015ms-blue.svg)](https://onnxruntime.ai)
-[![Evidently AI](https://img.shields.io/badge/Monitoring-Evidently%20AI%20Drift-green.svg)](https://evidentlyai.com)
+[![ONNX Runtime](https://img.shields.io/badge/Inference-ONNX%20Runtime-blue.svg)](https://onnxruntime.ai)
+[![DuckDB](https://img.shields.io/badge/Offline%20Store-DuckDB-yellow.svg)](https://duckdb.org)
+[![FastAPI](https://img.shields.io/badge/API-FastAPI-009688.svg)](https://fastapi.tiangolo.com)
 
 ---
 
-## 🎯 Executive Overview
-In mission-critical fintech fraud prevention and dynamic e-commerce pricing, offline batch predictions are too slow, and ad-hoc SQL feature engineering in REST APIs leads to severe train-serve skew and multi-second latency spikes.
+## 🎯 What Is Implemented
 
-**StreamShield-MLOps** delivers an enterprise-grade production streaming architecture:
-1. **High-Throughput Streaming Ingestion:** Kafka/Redpanda streams transaction events at $\ge 5,000\text{ events/sec}$.
-2. **Dual-Store Feature Management (Feast):** Synchronizes rolling entity aggregates to Redis online storage (sub-3ms fetch) and Parquet/DuckDB offline historical storage for zero-skew point-in-time joins.
-3. **Low-Latency Accelerated Scoring:** ONNX Runtime executes tree models in compiled C++ with AVX-512, hitting a strict P99 latency SLA $\le 12\text{ ms}$.
-4. **Automated Drift & Quality Observability:** Evidently AI runs continuous two-sample Kolmogorov-Smirnov (KS) tests and Population Stability Index (PSI) calculations, triggering alerts and shadow retraining jobs automatically upon concept drift.
+1. **Event stream:** an in-memory asynchronous queue and a synthetic transaction generator with a simulated botnet mode.
+2. **Feature store:** rolling per-user and per-merchant features in process memory, with historical rows written to DuckDB.
+3. **Model serving:** a scikit-learn scaler and MLP classifier exported to ONNX and served through FastAPI.
+4. **Drift checks:** per-feature Kolmogorov-Smirnov tests and Population Stability Index (PSI) on fraud scores.
+5. **Dashboard:** a Streamlit operations view.
+
+**Design only, not implemented in `src/`:** Kafka or Redpanda, Feast, Redis, Evidently AI, Prometheus, and automated retraining. They appear in the design documents below as a target architecture.
 
 ---
 
-## 🏗️ Architecture & Component Topology
+## 🏗️ Architecture
 
 ```mermaid
 flowchart LR
-    Event["💳 Tx Stream"] --> Kafka["📨 Kafka / Redpanda"]
-    Kafka --> Consumer["⚙️ Streaming Transformer"]
-    Consumer --> Redis["⚡ Redis Online Store (<3ms)"]
-    Consumer --> Parquet["🗄️ DuckDB Offline Store"]
-    API["🚀 FastAPI Scoring"] --> Redis
-    API --> ONNX["🧠 ONNX Runtime (<4ms)"]
-    ONNX --> Verdict["🛡️ Verdict: ALLOW / BLOCK"]
-    ONNX --> Evidently["📊 Evidently AI Drift Engine"]
-    Evidently --> Retrain["🔄 Auto-Retrain Trigger"]
+    Event["💳 Synthetic Tx Events"] --> Queue["📨 In-Memory Async Queue"]
+    Queue --> Features["⚙️ Online Features (Process Memory)"]
+    Features --> Offline["🗄️ DuckDB Offline Store"]
+    API["🚀 FastAPI Scoring"] --> Features
+    API --> ONNX["🧠 ONNX Runtime (MLP)"]
+    ONNX --> Verdict["🛡️ ALLOW / REVIEW / BLOCK"]
+    ONNX --> Drift["📊 KS and PSI Drift Checks"]
 ```
+
+---
+
+## 📊 Measured Results
+
+Reproduce with `python scripts/measure_serving.py`. Full output for seeds 42, 7, and 123 is in [`reports/serving_benchmark.json`](reports/serving_benchmark.json). Timings come from in-process calls on one laptop CPU and exclude HTTP and network time.
+
+| Measurement | Result across three seeds |
+| :--- | :--- |
+| ONNX model call, P50 | 0.045-0.052 ms |
+| scikit-learn model call, P50 | 0.243-0.277 ms |
+| Median P50 speedup | about 5.3x |
+| Fraud score PSI, stable window | 0.050-0.069 |
+| Fraud score PSI, simulated botnet window | 5.78-6.63 |
+
+**Known limitations**
+
+- `status` reports `ALERT_DRIFT_DETECTED` on the stable window too, because KS flags two features there. The likely cause is that rolling per-user features keep growing as history accumulates, and this has not been fixed.
+- `merchant_risk_score` is computed from labels, including the current event's. This is target leakage, so this repository does not report fraud-detection accuracy.
+- Offline batch writes were faster than row-by-row writes in every run, but the speedup varied too widely (5.5x to 181x) to quote as one number.
 
 ---
 
 ## 🚀 Quickstart & Setup
 
 ```bash
-# 1. Clone & Enter Directory
+# 1. Enter the directory
 cd Streaming_MLOps_FeatureStore
 
-# 2. Launch Supporting Infrastructure (Kafka, Redis, Prometheus)
-docker-compose up -d
-
-# 3. Setup Virtual Environment with uv
+# 2. Set up a virtual environment with uv
 uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# 4. Install Dependencies
+# 3. Install dependencies
 uv pip install -e ".[dev]"
 
-# 5. Apply Feast Feature Store Registry
-cd feast_repo && feast apply && cd ..
+# 4. Reproduce the measurements
+python scripts/measure_serving.py
 
-# 6. Start the Low-Latency Scoring API
+# 5. Start the scoring API
 uvicorn src.serving.api:app --reload --port 8000
 
-# 7. Launch Streamlit Operations Dashboard
+# 6. Launch the Streamlit dashboard
 streamlit run src/dashboard/app.py
 ```
 
 ---
 
-## 📚 Technical Documentation & Blueprints
-- [PRD.md](PRD.md): Product Requirements, user personas, and target SLAs.
-- [ARCHITECTURE.md](ARCHITECTURE.md): Mathematical formulations of KS-tests, PSI calculations, and sequence diagrams.
-- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md): 5-phase milestone implementation roadmap.
-- [STREAMING_MLOPS_AND_DRIFT_THEORY.md](STREAMING_MLOPS_AND_DRIFT_THEORY.md): Deep-dive into train-serve skew, covariate shift, and ONNX runtime optimizations.
-- [SLA_AND_MONITORING_AUDIT.md](SLA_AND_MONITORING_AUDIT.md): Production SLAs, Prometheus metrics, and alerting runbook.
-- [DECISIONS.md](DECISIONS.md): Architectural Decision Records (ADRs).
-- [TASKS.md](TASKS.md): Live task backlog and implementation tracker.
+## 📚 Design Documents
+
+These documents describe the target architecture and its goals. Latencies and throughput figures in them are design targets, not measurements.
+
+- [PRD.md](PRD.md): Product requirements and target SLAs.
+- [ARCHITECTURE.md](ARCHITECTURE.md): KS-test and PSI formulations, plus sequence diagrams.
+- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md): Milestone roadmap.
+- [STREAMING_MLOPS_AND_DRIFT_THEORY.md](STREAMING_MLOPS_AND_DRIFT_THEORY.md): Train-serve skew, covariate shift, and ONNX notes.
+- [SLA_AND_MONITORING_AUDIT.md](SLA_AND_MONITORING_AUDIT.md): Target SLAs and monitoring runbook.
+- [DECISIONS.md](DECISIONS.md): Architectural Decision Records.
+- [TASKS.md](TASKS.md): Task backlog.

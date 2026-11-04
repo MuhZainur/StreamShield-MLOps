@@ -1,0 +1,108 @@
+{
+  "scope": "Synthetic events, in-process calls. No HTTP, network, or broker time is included.",
+  "machine": "Intel64 Family 6 Model 141 Stepping 1, GenuineIntel",
+  "calls_per_seed": 1000,
+  "offline_writes_per_method": 500,
+  "median_p50_speedup_onnx_vs_sklearn": 5.3,
+  "runs": [
+    {
+      "seed": 42,
+      "onnx_model_call_ms": {
+        "p50": 0.0454,
+        "p95": 0.064,
+        "p99": 0.0825
+      },
+      "sklearn_model_call_ms": {
+        "p50": 0.2473,
+        "p95": 0.3316,
+        "p99": 0.4237
+      },
+      "feature_update_plus_onnx_ms": {
+        "p50": 0.0343,
+        "p95": 0.0362,
+        "p99": 0.0476
+      },
+      "stable_window": {
+        "status": "ALERT_DRIFT_DETECTED",
+        "prediction_psi": 0.0691,
+        "drifted_features_count": 2
+      },
+      "botnet_window": {
+        "status": "ALERT_DRIFT_DETECTED",
+        "prediction_psi": 5.7771,
+        "drifted_features_count": 5
+      },
+      "offline_write_seconds": {
+        "row_by_row": 2.4887,
+        "batch": 0.4494
+      },
+      "batch_speedup": 5.5
+    },
+    {
+      "seed": 7,
+      "onnx_model_call_ms": {
+        "p50": 0.0457,
+        "p95": 0.056,
+        "p99": 0.0772
+      },
+      "sklearn_model_call_ms": {
+        "p50": 0.2431,
+        "p95": 0.2797,
+        "p99": 0.3631
+      },
+      "feature_update_plus_onnx_ms": {
+        "p50": 0.0345,
+        "p95": 0.0475,
+        "p99": 0.0627
+      },
+      "stable_window": {
+        "status": "ALERT_DRIFT_DETECTED",
+        "prediction_psi": 0.0508,
+        "drifted_features_count": 2
+      },
+      "botnet_window": {
+        "status": "ALERT_DRIFT_DETECTED",
+        "prediction_psi": 6.3472,
+        "drifted_features_count": 5
+      },
+      "offline_write_seconds": {
+        "row_by_row": 2.4014,
+        "batch": 0.0173
+      },
+      "batch_speedup": 138.8
+    },
+    {
+      "seed": 123,
+      "onnx_model_call_ms": {
+        "p50": 0.0521,
+        "p95": 0.1545,
+        "p99": 0.2027
+      },
+      "sklearn_model_call_ms": {
+        "p50": 0.2773,
+        "p95": 0.8188,
+        "p99": 1.0906
+      },
+      "feature_update_plus_onnx_ms": {
+        "p50": 0.0344,
+        "p95": 0.042,
+        "p99": 0.0622
+      },
+      "stable_window": {
+        "status": "ALERT_DRIFT_DETECTED",
+        "prediction_psi": 0.0498,
+        "drifted_features_count": 2
+      },
+      "botnet_window": {
+        "status": "ALERT_DRIFT_DETECTED",
+        "prediction_psi": 6.6279,
+        "drifted_features_count": 6
+      },
+      "offline_write_seconds": {
+        "row_by_row": 2.318,
+        "batch": 0.0128
+      },
+      "batch_speedup": 181.0
+    }
+  ]
+}
